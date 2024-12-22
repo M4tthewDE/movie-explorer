@@ -48,6 +48,7 @@ impl Scraper {
 
                 for next_movie in next_movies.results {
                     if db::movies::exists(&self.pool, next_movie.id).await? {
+                        db::edges::insert(&self.pool, movie_id, next_movie.id, member.id).await?;
                         continue;
                     }
 
