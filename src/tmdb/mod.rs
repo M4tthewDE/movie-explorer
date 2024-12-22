@@ -2,28 +2,6 @@ use anyhow::{bail, Result};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
-pub struct MovieDetailsResponse {
-    pub id: i64,
-    pub title: String,
-}
-
-pub async fn get_movie(access_token: &str, movie_id: i64) -> Result<MovieDetailsResponse> {
-    let client = reqwest::Client::new();
-    let res = client
-        .get(format!("https://api.themoviedb.org/3/movie/{movie_id}"))
-        .header("Authorization", format!("Bearer {}", access_token))
-        .send()
-        .await?;
-
-    if res.status() != 200 {
-        bail!("request failed {:?}", res.status());
-    }
-
-    let res: MovieDetailsResponse = res.json().await?;
-    Ok(res)
-}
-
-#[derive(Deserialize, Debug)]
 pub struct DiscoverMoviesResponse {
     total_pages: i64,
     pub results: Vec<DiscoverMoviesResult>,
