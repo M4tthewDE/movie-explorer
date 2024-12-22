@@ -1,6 +1,8 @@
 use anyhow::Result;
 use sqlx::{Pool, Postgres};
 
+pub mod movies;
+
 pub async fn setup(pool: &Pool<Postgres>) -> Result<()> {
     drop_tables(pool).await?;
     setup_movies(pool).await?;

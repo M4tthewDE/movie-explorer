@@ -6,6 +6,7 @@ use tracing::info;
 use serde::Deserialize;
 
 mod db;
+mod scraper;
 mod tmdb;
 
 #[derive(Deserialize)]
@@ -34,6 +35,5 @@ async fn main() -> Result<()> {
         .await?;
 
     db::setup(&pool).await?;
-
-    Ok(())
+    scraper::scrape(&config, &pool).await
 }
