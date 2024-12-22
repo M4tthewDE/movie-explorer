@@ -1,4 +1,5 @@
 use anyhow::Result;
+use scraper::Scraper;
 use sqlx::postgres::PgPoolOptions;
 use std::path::PathBuf;
 use tracing::info;
@@ -35,5 +36,6 @@ async fn main() -> Result<()> {
         .await?;
 
     db::setup(&pool).await?;
-    scraper::scrape(&config, &pool).await
+    let scraper = Scraper::new(config, pool);
+    scraper.scrape().await
 }

@@ -1,7 +1,9 @@
 use anyhow::Result;
 use sqlx::{Pool, Postgres};
 
+pub mod edges;
 pub mod movies;
+pub mod people;
 
 pub async fn setup(pool: &Pool<Postgres>) -> Result<()> {
     drop_tables(pool).await?;
@@ -29,7 +31,7 @@ async fn setup_movies(pool: &Pool<Postgres>) -> Result<()> {
     sqlx::query(
         "CREATE TABLE movies (
             id SERIAL PRIMARY KEY,
-            tmdb_id INTEGER,
+            tmdb_id INTEGER UNIQUE,
             title VARCHAR(255)
         )",
     )
@@ -43,7 +45,7 @@ async fn setup_people(pool: &Pool<Postgres>) -> Result<()> {
     sqlx::query(
         "CREATE TABLE people (
             id SERIAL PRIMARY KEY,
-            tmdb_id INTEGER,
+            tmdb_id INTEGER UNIQUE,
             name VARCHAR(255)
         )",
     )
@@ -56,9 +58,9 @@ async fn setup_people(pool: &Pool<Postgres>) -> Result<()> {
 async fn setup_edges(pool: &Pool<Postgres>) -> Result<()> {
     sqlx::query(
         "CREATE TABLE edges (
-            previous_node INTEGER REFERENCES movies(id),
-            next_node INTEGER REFERENCES movies(id),
-            person INTEGER REFERENCES people(id),
+            previous_node INTEGER REFERENCES movies(tmdb_id),
+            next_node INTEGER REFERENCES movies(tmdb_id),
+            person INTEGER REFERENCES people(tmdb_id),
             PRIMARY KEY (previous_node, next_node)
         )",
     )
