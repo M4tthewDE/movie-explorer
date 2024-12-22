@@ -36,12 +36,19 @@ impl Scraper {
         let credits = tmdb::get_credits(&self.config.access_token, movie.id).await?;
 
         for member in credits.cast {
+            if db::people::exists(&self.pool, member.id).await? {
+                continue;
+            }
+
             db::people::insert(&self.pool, member.id, &member.name).await?;
             info!("scraping person {}", member.name);
             let next_movies =
                 tmdb::discover_movies_by_cast(&self.config.access_token, member.id).await?;
 
             for next_movie in next_movies.results {
+                if db::movies::exists(&self.pool, next_movie.id).await? {
+                    continue;
+                }
                 db::movies::insert(&self.pool, next_movie.id, &next_movie.title).await?;
                 db::edges::insert(&self.pool, movie.id, next_movie.id, member.id).await?;
             }
