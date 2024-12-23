@@ -20,9 +20,3 @@ pub async fn insert(
 
     Ok(())
 }
-
-pub async fn count(pool: &Pool<Postgres>) -> Result<i64> {
-    Ok(sqlx::query_scalar("SELECT COUNT(*) FROM edges")
-        .fetch_one(pool)
-        .await?)
-}

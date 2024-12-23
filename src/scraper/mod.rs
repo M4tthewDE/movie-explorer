@@ -1,8 +1,9 @@
-use std::{fs::File, io::BufRead, ops::Range, time::Duration};
+use std::{fs::File, io::BufRead, ops::Range, time::Instant};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::Deserialize;
 use sqlx::{Pool, Postgres};
+use tokio::sync::mpsc::{Receiver, Sender};
 use tracing::info;
 
 use crate::{
@@ -16,7 +17,7 @@ pub struct Scraper {
     pool: Pool<Postgres>,
 }
 
-const TASK_COUNT: i64 = 5;
+const TASK_COUNT: i64 = 20;
 
 impl Scraper {
     pub fn new(config: Config, pool: Pool<Postgres>) -> Self {
@@ -41,7 +42,7 @@ impl Scraper {
         let mut ranges = vec![];
 
         for i in 0..TASK_COUNT {
-            if i == TASK_COUNT - 1 {
+            if i == TASK_COUNT - 1 && TASK_COUNT != 1 {
                 ranges.push(i * range_size..people_count + 1);
             } else if i == 0 {
                 ranges.push(1..range_size);
@@ -50,18 +51,20 @@ impl Scraper {
             }
         }
 
-        dbg!(&ranges);
-
         info!("starting progress tracker");
-        self.progress_tracker().await;
+        let (tx, rx) = tokio::sync::mpsc::channel(1024);
+        self.progress_tracker(people_count, rx).await;
 
         let mut handles = Vec::new();
         info!("starting scraper tasks");
         for range in ranges {
             let pool = self.pool.clone();
             let access_token = self.config.access_token.clone();
+            let t = tx.clone();
             let handle =
-                tokio::spawn(async move { Self::scrape_people(&pool, &access_token, range).await });
+                tokio::spawn(
+                    async move { Self::scrape_people(&pool, &access_token, range, t).await },
+                );
 
             handles.push(handle);
         }
@@ -77,6 +80,7 @@ impl Scraper {
         pool: &Pool<Postgres>,
         access_token: &str,
         range: Range<i64>,
+        tx: Sender<i64>,
     ) -> Result<()> {
         for i in range {
             let person_id = db::people::get_tmdb_id(pool, i).await? as i64;
@@ -88,29 +92,29 @@ impl Scraper {
                     db::edges::insert(pool, movie1.id, movie2.id, person_id).await?;
                 }
             }
+            tx.send(person_id).await?;
         }
 
         Ok(())
     }
 
-    async fn progress_tracker(&self) {
-        let pool = self.pool.clone();
+    async fn progress_tracker(&self, total: i64, mut rx: Receiver<i64>) {
         tokio::spawn(async move {
-            let mut last_count = 0;
-            let interval = 5;
-            loop {
-                tokio::time::sleep(Duration::from_secs(interval)).await;
-                let count = db::edges::count(&pool)
-                    .await
-                    .context("progress tracker has crashed")
-                    .unwrap();
+            let mut count = 0;
+            let mut last_100 = Instant::now();
 
-                info!(
-                    "edges per second: {}",
-                    (count - last_count) / interval as i64
-                );
+            while rx.recv().await.is_some() {
+                count += 1;
 
-                last_count = count;
+                if count % 100 == 0 {
+                    info!(
+                        "{:.4}% | {:?}/p",
+                        count as f64 / total as f64,
+                        last_100.elapsed() / 100
+                    );
+
+                    last_100 = Instant::now();
+                }
             }
         });
     }
