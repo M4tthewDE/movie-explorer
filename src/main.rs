@@ -1,8 +1,10 @@
 use anyhow::Result;
+use console_subscriber::ConsoleLayer;
 use scraper::Scraper;
 use sqlx::postgres::PgPoolOptions;
 use std::path::PathBuf;
-use tracing::info;
+use tracing::{info, level_filters::LevelFilter};
+use tracing_subscriber::{layer::SubscriberExt, prelude::*, EnvFilter};
 
 use serde::Deserialize;
 
@@ -30,7 +32,15 @@ impl Config {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt().init();
+    let env_filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy();
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().with_filter(env_filter))
+        .with(ConsoleLayer::builder().with_default_env().spawn())
+        .init();
+
     let config = Config::new()?;
 
     let pool = PgPoolOptions::new()
