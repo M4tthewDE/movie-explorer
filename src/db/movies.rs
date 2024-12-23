@@ -1,30 +1,18 @@
 use anyhow::Result;
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Postgres, QueryBuilder};
 
-pub async fn insert(pool: &Pool<Postgres>, tmdb_id: i64, title: &str) -> Result<()> {
-    sqlx::query(
-        "INSERT INTO movies (tmdb_id, title) 
-            VALUES ($1, $2) ON CONFLICT (tmdb_id) DO NOTHING;
-        ",
-    )
-    .bind(tmdb_id)
-    .bind(title)
-    .execute(pool)
-    .await?;
+use crate::scraper::Movie;
+
+pub async fn bulk_insert(pool: &Pool<Postgres>, movies: &[Movie]) -> Result<()> {
+    for chunk in movies.chunks(1_000) {
+        let mut query_builder = QueryBuilder::new("INSERT INTO movies (tmdb_id, title) ");
+        query_builder.push_values(chunk, |mut b, movie| {
+            b.push_bind(movie.id).push_bind(&movie.original_title);
+        });
+
+        let query = query_builder.build();
+        query.execute(pool).await?;
+    }
 
     Ok(())
-}
-
-pub async fn exists(pool: &Pool<Postgres>, tmdb_id: i64) -> Result<bool> {
-    Ok(sqlx::query("SELECT * FROM movies WHERE tmdb_id = $1")
-        .bind(tmdb_id)
-        .fetch_optional(pool)
-        .await?
-        .is_some())
-}
-
-pub async fn count(pool: &Pool<Postgres>) -> Result<i64> {
-    Ok(sqlx::query_scalar("SELECT COUNT(*) FROM movies")
-        .fetch_one(pool)
-        .await?)
 }

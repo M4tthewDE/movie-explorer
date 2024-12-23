@@ -9,7 +9,7 @@ pub async fn insert(
 ) -> Result<()> {
     sqlx::query(
         "INSERT INTO edges (previous_node, next_node, person) 
-            VALUES ($1, $2, $3) ON CONFLICT (previous_node, next_node) DO NOTHING
+            VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
         ",
     )
     .bind(previous_node)
@@ -19,4 +19,10 @@ pub async fn insert(
     .await?;
 
     Ok(())
+}
+
+pub async fn count(pool: &Pool<Postgres>) -> Result<i64> {
+    Ok(sqlx::query_scalar("SELECT COUNT(*) FROM edges")
+        .fetch_one(pool)
+        .await?)
 }

@@ -14,6 +14,9 @@ mod tmdb;
 struct Config {
     access_token: String,
     connection_string: String,
+    movie_path: PathBuf,
+    person_path: PathBuf,
+    import: bool,
 }
 
 impl Config {
@@ -35,7 +38,7 @@ async fn main() -> Result<()> {
         .connect(&config.connection_string)
         .await?;
 
-    db::setup(&pool).await?;
+    db::setup(&pool, config.import).await?;
     let scraper = Scraper::new(config, pool);
     scraper.scrape().await
 }

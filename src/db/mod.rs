@@ -5,24 +5,30 @@ pub mod edges;
 pub mod movies;
 pub mod people;
 
-pub async fn setup(pool: &Pool<Postgres>) -> Result<()> {
-    drop_tables(pool).await?;
-    setup_movies(pool).await?;
-    setup_people(pool).await?;
+pub async fn setup(pool: &Pool<Postgres>, import: bool) -> Result<()> {
+    drop_tables(pool, import).await?;
+
+    if import {
+        setup_movies(pool).await?;
+        setup_people(pool).await?;
+    }
+
     setup_edges(pool).await?;
     Ok(())
 }
 
-async fn drop_tables(pool: &Pool<Postgres>) -> Result<()> {
+async fn drop_tables(pool: &Pool<Postgres>, import: bool) -> Result<()> {
     sqlx::query("DROP TABLE IF EXISTS edges")
         .execute(pool)
         .await?;
-    sqlx::query("DROP TABLE IF EXISTS movies")
-        .execute(pool)
-        .await?;
-    sqlx::query("DROP TABLE IF EXISTS people")
-        .execute(pool)
-        .await?;
+    if import {
+        sqlx::query("DROP TABLE IF EXISTS movies")
+            .execute(pool)
+            .await?;
+        sqlx::query("DROP TABLE IF EXISTS people")
+            .execute(pool)
+            .await?;
+    }
 
     Ok(())
 }

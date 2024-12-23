@@ -1,24 +1,33 @@
 use anyhow::Result;
-use sqlx::{Pool, Postgres};
+use sqlx::Row;
+use sqlx::{Pool, Postgres, QueryBuilder};
 
-pub async fn insert(pool: &Pool<Postgres>, tmdb_id: i64, name: &str) -> Result<()> {
-    sqlx::query(
-        "INSERT INTO people (tmdb_id, name) 
-            VALUES ($1, $2) 
-        ",
-    )
-    .bind(tmdb_id)
-    .bind(name)
-    .execute(pool)
-    .await?;
+use crate::scraper::Person;
+
+pub async fn bulk_insert(pool: &Pool<Postgres>, people: &[Person]) -> Result<()> {
+    for chunk in people.chunks(1_000) {
+        let mut query_builder = QueryBuilder::new("INSERT INTO people (tmdb_id, name) ");
+        query_builder.push_values(chunk, |mut b, person| {
+            b.push_bind(person.id).push_bind(&person.name);
+        });
+
+        let query = query_builder.build();
+        query.execute(pool).await?;
+    }
 
     Ok(())
 }
 
-pub async fn exists(pool: &Pool<Postgres>, tmdb_id: i64) -> Result<bool> {
-    Ok(sqlx::query("SELECT * FROM people WHERE tmdb_id = $1")
-        .bind(tmdb_id)
-        .fetch_optional(pool)
+pub async fn get_tmdb_id(pool: &Pool<Postgres>, id: i64) -> Result<i32> {
+    Ok(sqlx::query("SELECT * FROM people WHERE id = $1")
+        .bind(id)
+        .fetch_one(pool)
         .await?
-        .is_some())
+        .try_get("tmdb_id")?)
+}
+
+pub async fn count(pool: &Pool<Postgres>) -> Result<i64> {
+    Ok(sqlx::query_scalar("SELECT COUNT(*) FROM people")
+        .fetch_one(pool)
+        .await?)
 }
