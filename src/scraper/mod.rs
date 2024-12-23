@@ -17,7 +17,7 @@ pub struct Scraper {
     pool: Pool<Postgres>,
 }
 
-const TASK_COUNT: i64 = 20;
+const TASK_COUNT: i64 = 10;
 
 impl Scraper {
     pub fn new(config: Config, pool: Pool<Postgres>) -> Self {
@@ -86,12 +86,14 @@ impl Scraper {
             let person_id = db::people::get_tmdb_id(pool, i).await? as i64;
             let movies = tmdb::discover_movies_by_cast(access_token, person_id).await?;
 
-            // TODO: insert all edges at once
+            let mut edges = Vec::new();
             for movie1 in &movies.results {
                 for movie2 in &movies.results {
-                    db::edges::insert(pool, movie1.id, movie2.id, person_id).await?;
+                    edges.push((movie1.id, movie2.id, person_id));
                 }
             }
+
+            db::edges::insert_bulk(pool, &edges).await?;
             tx.send(person_id).await?;
         }
 
