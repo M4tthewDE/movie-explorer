@@ -17,7 +17,7 @@ pub struct Scraper {
     pool: Pool<Postgres>,
 }
 
-const TASK_COUNT: i64 = 10;
+const TASK_COUNT: i64 = 20;
 
 impl Scraper {
     pub fn new(config: Config, pool: Pool<Postgres>) -> Self {

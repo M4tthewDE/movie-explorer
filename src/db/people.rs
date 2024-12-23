@@ -1,9 +1,11 @@
 use anyhow::Result;
 use sqlx::Row;
 use sqlx::{Pool, Postgres, QueryBuilder};
+use tracing::instrument;
 
 use crate::scraper::Person;
 
+//#[instrument(level = "trace")]
 pub async fn bulk_insert(pool: &Pool<Postgres>, people: &[Person]) -> Result<()> {
     for chunk in people.chunks(1_000) {
         let mut query_builder = QueryBuilder::new("INSERT INTO people (tmdb_id, name) ");
@@ -18,6 +20,7 @@ pub async fn bulk_insert(pool: &Pool<Postgres>, people: &[Person]) -> Result<()>
     Ok(())
 }
 
+//#[instrument(level = "trace")]
 pub async fn get_tmdb_id(pool: &Pool<Postgres>, id: i64) -> Result<i32> {
     Ok(sqlx::query("SELECT * FROM people WHERE id = $1")
         .bind(id)
@@ -26,6 +29,7 @@ pub async fn get_tmdb_id(pool: &Pool<Postgres>, id: i64) -> Result<i32> {
         .try_get("tmdb_id")?)
 }
 
+//#[instrument(level = "trace")]
 pub async fn count(pool: &Pool<Postgres>) -> Result<i64> {
     Ok(sqlx::query_scalar("SELECT COUNT(*) FROM people")
         .fetch_one(pool)
