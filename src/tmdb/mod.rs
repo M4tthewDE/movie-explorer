@@ -7,7 +7,7 @@ pub struct DiscoverMoviesResponse {
     pub results: Vec<DiscoverMoviesResult>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct DiscoverMoviesResult {
     pub id: i64,
     pub title: String,

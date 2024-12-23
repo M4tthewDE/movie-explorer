@@ -22,3 +22,9 @@ pub async fn exists(pool: &Pool<Postgres>, tmdb_id: i64) -> Result<bool> {
         .await?
         .is_some())
 }
+
+pub async fn count(pool: &Pool<Postgres>) -> Result<i64> {
+    Ok(sqlx::query_scalar("SELECT COUNT(*) FROM movies")
+        .fetch_one(pool)
+        .await?)
+}
