@@ -4,7 +4,7 @@ use anyhow::Result;
 use serde::Deserialize;
 use sqlx::{Pool, Postgres};
 use tokio::sync::mpsc::{Receiver, Sender};
-use tracing::info;
+use tracing::{info, instrument};
 
 use crate::{
     db,
@@ -17,7 +17,7 @@ pub struct Scraper {
     pool: Pool<Postgres>,
 }
 
-const TASK_COUNT: i64 = 20;
+const TASK_COUNT: i64 = 5;
 
 impl Scraper {
     pub fn new(config: Config, pool: Pool<Postgres>) -> Self {
@@ -83,21 +83,27 @@ impl Scraper {
         tx: Sender<i64>,
     ) -> Result<()> {
         for i in range {
-            let person_id = db::people::get_tmdb_id(pool, i).await? as i64;
-            let movies = tmdb::discover_movies_by_cast(access_token, person_id).await?;
-
-            let mut edges = Vec::new();
-            for movie1 in &movies.results {
-                for movie2 in &movies.results {
-                    edges.push((movie1.id, movie2.id, person_id));
-                }
-            }
-
-            db::edges::insert_bulk(pool, &edges).await?;
+            let person_id = Self::scrape_person(pool, access_token, i).await?;
             tx.send(person_id).await?;
         }
 
         Ok(())
+    }
+
+    #[instrument(level = "trace", skip(pool, access_token))]
+    async fn scrape_person(pool: &Pool<Postgres>, access_token: &str, id: i64) -> Result<i64> {
+        let person_id = db::people::get_tmdb_id(pool, id).await? as i64;
+        let movies = tmdb::discover_movies_by_cast(access_token, person_id).await?;
+
+        let mut edges = Vec::new();
+        for movie1 in &movies.results {
+            for movie2 in &movies.results {
+                edges.push((movie1.id, movie2.id, person_id));
+            }
+        }
+
+        db::edges::insert_bulk(pool, &edges).await?;
+        Ok(person_id)
     }
 
     async fn progress_tracker(&self, total: i64, mut rx: Receiver<i64>) {

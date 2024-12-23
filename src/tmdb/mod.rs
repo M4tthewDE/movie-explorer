@@ -1,5 +1,7 @@
 use anyhow::{bail, Result};
 use serde::Deserialize;
+use tracing::Instrument;
+use tracing::{instrument, trace_span};
 
 #[derive(Deserialize, Debug)]
 pub struct DiscoverMoviesResponse {
@@ -12,6 +14,7 @@ pub struct DiscoverMoviesResult {
     pub id: i64,
 }
 
+#[instrument(level = "trace", skip(access_token))]
 pub async fn discover_movies_by_cast(
     access_token: &str,
     cast: i64,
@@ -24,6 +27,7 @@ pub async fn discover_movies_by_cast(
         ))
         .header("Authorization", format!("Bearer {}", access_token))
         .send()
+        .instrument(trace_span!("send"))
         .await?;
 
     if res.status() != 200 {
@@ -40,6 +44,7 @@ pub async fn discover_movies_by_cast(
     Ok(res)
 }
 
+#[instrument(level = "trace", skip(access_token, page))]
 pub async fn discover_movies_by_cast_with_page(
     access_token: &str,
     cast: i64,
@@ -52,6 +57,7 @@ pub async fn discover_movies_by_cast_with_page(
         ))
         .header("Authorization", format!("Bearer {}", access_token))
         .send()
+        .instrument(trace_span!("send"))
         .await?;
 
     if res.status() != 200 {
